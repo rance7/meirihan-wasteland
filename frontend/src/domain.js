@@ -35,7 +35,7 @@ function demoState(){
 }
 function validateState(data){
   const fail=msg=>{throw Error(msg);};
-  if(!data||data.version!==1||!['demo','personal'].includes(data.mode)||!Array.isArray(data.bloggers)||!Array.isArray(data.records))fail('文件格式不符合见微 v1 备份');
+  if(!data||data.version!==1||!['demo','personal'].includes(data.mode)||!Array.isArray(data.bloggers)||!Array.isArray(data.records))fail('文件格式不符合美日韩废土 v1 备份');
   if(data.bloggers.length>2000||data.records.length>30000)fail('备份数据量过大');
   const text=(obj,key,max=10000,required=false)=>{const s=obj[key];if(typeof s!=='string'||s.length>max||(required&&!s.trim()))fail('字段不合法：'+key);return s;};
   const ids=new Set(),names=new Set();
@@ -51,4 +51,4 @@ export {demoState};
 export function normalize(data){const value=validateState(data);value.revision=Number.isSafeInteger(data.revision)&&data.revision>=0?data.revision:0;for(const r of value.records)r.status=r.verified?'published':'draft';return value;}
 export function matches(r,q,bloggers){const key=q.trim().toLowerCase();return !key||[r.title,r.target,r.quote,bloggers.find(b=>b.id===r.bloggerId)?.name].some(s=>s?.toLowerCase().includes(key));}
 export function priceReturn(review){if(review?.entry==null||review.exit==null)return null;return (review.exit/review.entry-1)*100;}
-export function download(data,name='见微-备份-'+dateToday()+'.json'){const blob=new Blob([JSON.stringify({...data,exportedAt:new Date().toISOString()},null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+export function download(data,name='美日韩废土-备份-'+dateToday()+'.json'){const blob=new Blob([JSON.stringify({...data,exportedAt:new Date().toISOString()},null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}

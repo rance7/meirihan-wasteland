@@ -1,4 +1,6 @@
-# 见微 · Go + React + MongoDB
+# 美日韩废土 · Go + React + MongoDB
+
+项目仓库：[rance7/meirihan-wasteland](https://github.com/rance7/meirihan-wasteland)。
 
 本地个人博主观点复盘工具。前端 React 19 + Vite 8，后端 Go `net/http`，数据库为真实 MongoDB 8。保留博主档案、观点台账、复盘评分、搜索筛选、JSON 导入导出和笔记原图。
 
@@ -14,7 +16,7 @@ docker compose up --build -d --wait
 
 打开 **http://127.0.0.1:4180**。只需 Docker Desktop，无需在宿主机安装 Go、Node.js 或 MongoDB。构建阶段由 Node 编译 React、Go 编译后端；运行时只有 `app` 和 `mongo` 两个容器，Go 提供 API 与前端静态文件。`--wait` 等待应用和数据库健康检查通过后返回。
 
-MongoDB 数据保存在 `mongo-data` 命名卷，端口只发布至 `127.0.0.1`。后台容器无需保持终端打开。查看状态和日志：
+MongoDB 数据保存在 `mongo-data` 命名卷，端口只发布至 `127.0.0.1`。后台容器无需保持终端打开。容器项目名和数据库名沿用 `jianwei`，已有数据卷及旧版备份格式保持兼容。查看状态和日志：
 
 ```powershell
 docker compose ps
