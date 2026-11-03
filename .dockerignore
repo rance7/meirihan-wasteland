@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+.cache
+.local
+.tools
+.git
+legacy
+preview.png
+.env

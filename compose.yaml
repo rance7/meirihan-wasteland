@@ -1,0 +1,38 @@
+name: jianwei
+
+services:
+  mongo:
+    image: mongo:8.0.17
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "quit(db.adminCommand('ping').ok ? 0 : 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      HTTP_ADDR: "0.0.0.0:4180"
+      MONGODB_URI: "mongodb://mongo:27017"
+      MONGODB_DATABASE: "${MONGODB_DATABASE:-jianwei}"
+      WEB_DIR: "/app/web"
+    ports:
+      - "127.0.0.1:4180:4180"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:4180/api/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  mongo-data:
