@@ -42,6 +42,7 @@ func TestMongoPersistenceAndConcurrentSave(t *testing.T) {
 	next := domain.Empty()
 	next.Bloggers = []domain.Blogger{{ID: "b1", Name: "数据库集成测试", Color: "green"}}
 	next.Records = []domain.Record{{ID: "r1", BloggerID: "b1", Title: "测试判断", Quote: "原始依据", Target: "测试主题", Direction: "观望", Kind: "观点", Date: "2026-01-01", Verified: true, Status: "published", Review: &domain.Review{Date: "2026-01-02", Ratings: []int{3, 3, 3, 3}, Outcome: "测试证据", Verdict: "success"}}}
+	next.Records = append(next.Records, domain.Record{ID: "r2", BloggerID: "b1", Target: "快速核对", Direction: "看空", Kind: "观点", Date: "2026-01-01", Verified: true, Status: "published", Review: &domain.Review{Date: "2026-01-02", Ratings: []int{}, Verdict: "failure"}})
 	saved, err := repo.Save(ctx, next, 0)
 	if err != nil || saved.Revision != 1 {
 		t.Fatal("save", err)
@@ -56,8 +57,11 @@ func TestMongoPersistenceAndConcurrentSave(t *testing.T) {
 	if err != nil || loaded.Revision != 1 || loaded.Bloggers[0].Name != "数据库集成测试" {
 		t.Fatal("reopen lost data", err)
 	}
-	if len(loaded.Records) != 1 || loaded.Records[0].Review == nil || loaded.Records[0].Review.Verdict != "success" {
+	if len(loaded.Records) != 2 || loaded.Records[0].Review == nil || loaded.Records[0].Review.Verdict != "success" {
 		t.Fatal("review verdict did not survive MongoDB persistence")
+	}
+	if v := loaded.Records[1].Review; v == nil || v.Verdict != "failure" || len(v.Ratings) != 0 || v.Outcome != "" {
+		t.Fatal("score-free result did not survive MongoDB persistence")
 	}
 	var wg sync.WaitGroup
 	results := make(chan error, 12)

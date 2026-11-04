@@ -88,6 +88,52 @@ func TestReadSaveConflict(t *testing.T) {
 	}
 }
 
+func TestOptionalOpinionFieldsRoundTrip(t *testing.T) {
+	repo := &memory{data: domain.Empty()}
+	h := New(repo, t.TempDir(), nil)
+	next := domain.Empty()
+	next.Bloggers = []domain.Blogger{{ID: "b1", Name: "测试博主", Color: "blue"}}
+	next.Records = []domain.Record{{ID: "r1", BloggerID: "b1", Target: "测试主题", Direction: "观望", Kind: "观点", Date: "2026-01-01", Status: "draft"}}
+	headers := map[string]string{"Content-Type": "application/json", "If-Match": `"0"`}
+	w := request(h, "PUT", "/api/workspace", encoded(t, next), headers)
+	if w.Code != http.StatusOK {
+		t.Fatalf("blank title and quote rejected: %d %s", w.Code, w.Body)
+	}
+	w = request(h, "GET", "/api/workspace", nil, nil)
+	var loaded domain.Workspace
+	if err := json.Unmarshal(w.Body.Bytes(), &loaded); err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK || len(loaded.Records) != 1 || loaded.Records[0].Title != "" || loaded.Records[0].Quote != "" || loaded.Records[0].Target != "测试主题" {
+		t.Fatal("optional fields did not survive save/read unchanged")
+	}
+}
+
+func TestOptionalReviewFieldsRoundTrip(t *testing.T) {
+	for _, verdict := range []string{"success", "failure", ""} {
+		for _, ratings := range [][]int{{}, {0, 3, 4, 5}} {
+			repo := &memory{data: domain.Empty()}
+			h := New(repo, t.TempDir(), nil)
+			next := domain.Empty()
+			next.Bloggers = []domain.Blogger{{ID: "b1", Name: "测试博主", Color: "blue"}}
+			next.Records = []domain.Record{{ID: "r1", BloggerID: "b1", Target: "测试主题", Direction: "看多", Kind: "观点", Date: "2026-01-01", Status: "published", Verified: true, Review: &domain.Review{Date: "2026-01-02", Verdict: verdict, Ratings: ratings}}}
+			w := request(h, "PUT", "/api/workspace", encoded(t, next), map[string]string{"Content-Type": "application/json", "If-Match": `"0"`})
+			if w.Code != http.StatusOK {
+				t.Fatalf("optional review %q rejected: %d %s", verdict, w.Code, w.Body)
+			}
+			w = request(h, "GET", "/api/workspace", nil, nil)
+			var loaded domain.Workspace
+			if err := json.Unmarshal(w.Body.Bytes(), &loaded); err != nil {
+				t.Fatal(err)
+			}
+			v := loaded.Records[0].Review
+			if v == nil || v.Verdict != verdict || len(v.Ratings) != len(ratings) || v.Outcome != "" || !loaded.Records[0].Verified {
+				t.Fatal("optional review result did not survive API save/read")
+			}
+		}
+	}
+}
+
 func TestInvalidRequests(t *testing.T) {
 	repo := &memory{data: domain.Empty()}
 	h := New(repo, t.TempDir(), nil)

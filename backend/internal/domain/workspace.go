@@ -119,8 +119,8 @@ func Validate(w Workspace, now time.Time) error {
 			max         int
 			required    bool
 		}{
-			{r.ID, "记录 ID", 100, true}, {r.BloggerID, "关联博主", 100, true}, {r.Title, "观点概括", 180, true},
-			{r.Target, "标的", 100, true}, {r.Quote, "原话", 10000, true}, {r.Horizon, "判断周期", 30, false},
+			{r.ID, "记录 ID", 100, true}, {r.BloggerID, "关联博主", 100, true}, {r.Title, "观点概括", 180, false},
+			{r.Target, "标的", 100, true}, {r.Quote, "原话", 10000, false}, {r.Horizon, "判断周期", 30, false},
 			{r.Condition, "成立条件", 3000, false}, {r.Invalidation, "失效条件", 3000, false}, {r.Source, "来源", 2000, false},
 		} {
 			if err := check(f.value, f.name, f.max, f.required); err != nil {
@@ -135,7 +135,7 @@ func Validate(w Workspace, now time.Time) error {
 			return fmt.Errorf("观点方向、类型或状态不合法")
 		}
 		if (r.Status == "draft") == r.Verified {
-			return fmt.Errorf("待核对状态与原文核对标记不一致")
+			return fmt.Errorf("存档状态与核对标记不一致")
 		}
 		if !ValidDate(r.Date) || r.Date > today || (r.Due != "" && (!ValidDate(r.Due) || r.Due < r.Date)) {
 			return fmt.Errorf("发表日期或计划回看日期不合法")
@@ -153,15 +153,15 @@ func Validate(w Workspace, now time.Time) error {
 			if !ValidDate(v.Date) || v.Date < r.Date || v.Date > today {
 				return fmt.Errorf("复盘日期应在发表日期至今天之间")
 			}
-			if len(v.Ratings) != 4 {
-				return fmt.Errorf("必须填写四项评分")
+			if len(v.Ratings) != 0 && len(v.Ratings) != 4 {
+				return fmt.Errorf("评分可以暂不填写，填写时必须包含四项")
 			}
 			for _, n := range v.Ratings {
 				if n < 0 || n > 5 {
 					return fmt.Errorf("每项评分必须在 0–5 之间")
 				}
 			}
-			if err := check(v.Outcome, "结果与证据", 10000, true); err != nil {
+			if err := check(v.Outcome, "结果与证据", 10000, false); err != nil {
 				return err
 			}
 			if err := check(v.Lesson, "复盘心得", 5000, false); err != nil {
