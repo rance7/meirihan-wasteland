@@ -5,6 +5,19 @@ export const uid=()=>crypto.randomUUID();
 export const score=r=>r.review?r.review.ratings.reduce((sum,n,i)=>sum+n*[8,5,4,3][i],0):null;
 export const eligible=r=>Boolean(r.verified&&r.review&&r.status!=='draft');
 export const average=records=>{const list=records.filter(eligible);return list.length?Math.round(list.reduce((s,r)=>s+score(r),0)/list.length):null;};
+export const REVIEW_VERDICTS={success:'成功',failure:'失败'};
+export function successRate(records){
+  let success=0,failure=0,unjudged=0;
+  for(const record of records){
+    if(!eligible(record))continue;
+    if(record.review.verdict==='success')success++;
+    else if(record.review.verdict==='failure')failure++;
+    else unjudged++;
+  }
+  const judged=success+failure;
+  return {success,failure,unjudged,judged,rate:judged?Math.round(success/judged*1000)/10:null};
+}
+export const formatSuccessRate=result=>result.rate===null?'—':`${result.rate}%`;
 export function safeURL(value){try{const u=new URL(value);return ['http:','https:'].includes(u.protocol)&&!u.username&&!u.password;}catch{return false;}}
 export function validDate(s){return typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s+'T00:00:00Z'))&&new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;}
 function demoState(){
@@ -30,7 +43,7 @@ function demoState(){
   ];
   return {version:1,mode:'demo',bloggers,records:descriptions.map((x,i)=>({
     id:`r${i+1}`,bloggerId:x[0],title:x[1],target:x[2],direction:x[3],kind:x[4],quote:x[5],date:dayOffset(x[6]),due:dayOffset(x[6]+7),horizon:'一周',condition:'以原文前置条件成立为准，避免脱离上下文。',invalidation:'关键支撑失守或原有条件不成立时，重新评估。',source:'',status:i===11?'draft':'published',verified:i!==11,
-    review:x[7]?{date:dayOffset(Math.min(x[6]+5,0)),ratings:x[7],outcome:'演示复盘：记录当时条件与后续变化，检查判断是否按约定兑现。',lesson:'这是虚构的交互示例；评分用于展示功能，不代表任何真实博主表现。',entry:null,exit:null,benchmark:null}:null
+    review:x[7]?{date:dayOffset(Math.min(x[6]+5,0)),ratings:x[7],verdict:['success','success','','failure','success','failure','success'][i],outcome:'演示复盘：记录当时条件与后续变化，检查判断是否按约定兑现。',lesson:'这是虚构的交互示例；评分用于展示功能，不代表任何真实博主表现。',entry:null,exit:null,benchmark:null}:null
   }))};
 }
 function validateState(data){
@@ -44,7 +57,7 @@ function validateState(data){
   const records=data.records.map(r=>{if(!r||typeof r!=='object')fail('观点格式不合法');const n={};for(const [key,max,required]of [['id',100,true],['bloggerId',100,true],['title',180,true],['target',100,true],['direction',10,true],['kind',10,true],['quote',10000,true],['date',10,true],['due',10,false],['horizon',30,false],['condition',3000,false],['invalidation',3000,false],['source',2000,false],['status',20,true]])n[key]=text(r,key,max,required);
     if(recordIds.has(n.id)||!ids.has(n.bloggerId)||!['看多','看空','观望'].includes(n.direction)||!['观点','操作'].includes(n.kind)||!['draft','published'].includes(n.status)||typeof r.verified!=='boolean')fail('观点 ID、博主关联或分类不合法');recordIds.add(n.id);
     if(!validDate(n.date)||n.date>dateToday()||(n.due&&(!validDate(n.due)||n.due<n.date))||(n.source&&!safeURL(n.source)))fail('观点日期或来源链接不合法');n.verified=r.verified;n.review=null;
-    if(r.review!==null){const v=r.review;if(!v||!r.verified||n.status==='draft'||!Array.isArray(v.ratings)||v.ratings.length!==4||v.ratings.some(x=>!Number.isInteger(x)||x<0||x>5))fail('复盘评分或核对状态不合法');const rev={date:text(v,'date',10,true),ratings:[...v.ratings],outcome:text(v,'outcome',10000,true),lesson:text(v,'lesson',5000)};if(!validDate(rev.date)||rev.date<n.date||rev.date>dateToday())fail('复盘日期不合法');for(const key of ['entry','exit','benchmark']){if(v[key]!==null&&(typeof v[key]!=='number'||!Number.isFinite(v[key])))fail('价格或基准格式不合法');rev[key]=v[key];}if((rev.entry===null)!==(rev.exit===null)||(rev.entry!==null&&(rev.entry<=0||rev.exit<0))||(rev.benchmark!==null&&rev.benchmark < -100))fail('价格或基准数值不合法');n.review=rev;}return n;});
+    if(r.review!==null){const v=r.review;if(!v||!r.verified||n.status==='draft'||!Array.isArray(v.ratings)||v.ratings.length!==4||v.ratings.some(x=>!Number.isInteger(x)||x<0||x>5))fail('复盘评分或核对状态不合法');const rev={date:text(v,'date',10,true),ratings:[...v.ratings],outcome:text(v,'outcome',10000,true),lesson:text(v,'lesson',5000)};if(!validDate(rev.date)||rev.date<n.date||rev.date>dateToday())fail('复盘日期不合法');if(v.verdict!==undefined&&!['','success','failure'].includes(v.verdict))fail('复盘判断结果不合法');if(v.verdict)rev.verdict=v.verdict;for(const key of ['entry','exit','benchmark']){if(v[key]!==null&&(typeof v[key]!=='number'||!Number.isFinite(v[key])))fail('价格或基准格式不合法');rev[key]=v[key];}if((rev.entry===null)!==(rev.exit===null)||(rev.entry!==null&&(rev.entry<=0||rev.exit<0))||(rev.benchmark!==null&&rev.benchmark < -100))fail('价格或基准数值不合法');n.review=rev;}return n;});
   return {version:1,mode:data.mode,bloggers,records};
 }
 export {demoState};

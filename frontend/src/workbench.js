@@ -7,6 +7,8 @@ export function stage(record){
   return !record.verified||record.status==='draft'?'draft':record.review?'reviewed':'pending';
 }
 
+export function verificationRecords(records){return records.filter(r=>stage(r)==='draft');}
+
 export function filterRecords(data,query='',filter=EMPTY_FILTERS){
   return data.records.filter(r=>matches(r,query,data.bloggers)
     &&(!filter.blogger||r.bloggerId===filter.blogger)

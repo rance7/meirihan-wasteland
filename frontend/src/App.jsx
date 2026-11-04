@@ -6,7 +6,7 @@ import {BloggerForm,RecordDetail,RecordForm,ReviewForm} from './forms.jsx';
 import {Bloggers,labels,Settings} from './views.jsx';
 import Workbench from './Workbench.jsx';
 import OpinionCalendar from './OpinionCalendar.jsx';
-import {EMPTY_FILTERS,filterRecords,reviewRecords as selectReviewRecords,sortRecords} from './workbench.js';
+import {EMPTY_FILTERS,filterRecords,reviewRecords as selectReviewRecords,sortRecords,verificationRecords} from './workbench.js';
 
 const initialFilter=EMPTY_FILTERS;
 export default function App(){
@@ -45,10 +45,12 @@ export default function App(){
   function prepareImport(raw){if(preview)return;try{const imported=normalize(raw);if(imported.mode==='demo')return notify('这是一份演示备份，不能恢复到个人数据库。');open({type:'confirm',title:'恢复这份备份？',text:`已校验：${imported.bloggers.length} 位博主、${imported.records.length} 条记录。确认后会替换当前数据库中的 ${workspace.bloggers.length} 位博主、${workspace.records.length} 条记录。旧版浏览器原始数据不会删除。`,confirm:()=>persist({...imported,mode:'personal'})})}catch(err){notify('导入失败：'+err.message)}}
   async function importFile(event){const file=event.target.files?.[0];event.target.value='';if(!file)return;if(file.size>8*1024*1024)return notify('备份不能超过 8 MiB');try{prepareImport(JSON.parse(await file.text()))}catch(err){notify('导入失败：'+err.message)}}
   const tableProps={bloggers:data?.bloggers||[],onDetail:r=>open({type:'detail',value:r}),onEdit:r=>open({type:'record',value:r}),onReview:r=>open({type:'review',value:r}),onAdd:addRecord};
-  const scope=data?filterRecords(data,query,view==='reviews'?{...filter,status:''}:filter):[];
+  const queueMode=view==='reviews'||view==='verification';
+  const scope=data?filterRecords(data,query,queueMode?{...filter,status:''}:filter):[];
   const currentSort=view==='reviews'?reviewSort:sort;
   const records=sortRecords(scope,sort,data?.bloggers);
   const reviewRecords=sortRecords(selectReviewRecords(scope,tab),reviewSort,data?.bloggers);
+  const unverifiedRecords=verificationRecords(records);
   function changeSort(key){const setter=view==='reviews'?setReviewSort:setSort;setter(previous=>({key,direction:previous.key===key?(previous.direction==='desc'?'asc':'desc'):['due','blogger','target'].includes(key)?'asc':'desc'}));}
   function changeReviewTab(next){setTab(next);setReviewSort({key:next==='completed'?'reviewDate':'due',direction:next==='completed'?'desc':'asc'});}
   function resetFilters(){setFilter(initialFilter);setQuery('');}
@@ -63,7 +65,7 @@ export default function App(){
       modalBody=<BloggerForm value={value} disabled={saveDisabled} onError={setError} onSubmit={async b=>{if(workspace.bloggers.some(x=>x.name===b.name&&x.id!==b.id))return setError('已存在同名博主');const ok=await change(s=>{const i=s.bloggers.findIndex(x=>x.id===b.id);i<0?s.bloggers.push(b):s.bloggers[i]=b},{keepOpen:modal.thenRecord});if(ok&&modal.thenRecord)setModal({type:'record',preferredBlogger:b.id})}}/>;
       modalFooter=<>{value&&<button className="button danger" disabled={saveDisabled||data.records.some(r=>r.bloggerId===value.id)} onClick={()=>askDelete('blogger',value.id)}>删除档案</button>}<button className="button" disabled={busy} onClick={close}>取消</button>{saveButton('blogger-form')}</>;
     }else if(modal.type==='record'){
-      modalTitle=value?'编辑观点记录':'记下一个观点';modalSubtitle='保留当时的原话和条件，不用事后结果改写判断。';
+      modalTitle=value?(!value.verified?'核对观点记录':'编辑观点记录'):'记下一个观点';modalSubtitle='保留当时的原话和条件，不用事后结果改写判断。';
       modalBody=<RecordForm value={value} bloggers={data.bloggers} preferredBlogger={modal.preferredBlogger} disabled={saveDisabled} onError={setError} onSubmit={r=>change(s=>{const i=s.records.findIndex(x=>x.id===r.id);i<0?s.records.push(r):s.records[i]=r})}/>;
       modalFooter=<>{value&&<button className="button danger" disabled={saveDisabled} onClick={()=>askDelete('record',value.id)}>删除记录</button>}<button className="button" disabled={busy} onClick={close}>取消</button>{saveButton('record-form')}</>;
     }else if(modal.type==='review'){
@@ -79,12 +81,12 @@ export default function App(){
       modalTitle=modal.title;modalBody=<div className="confirmation">{modal.text}</div>;modalFooter=<><button className="button" onClick={exportCurrent}>先导出当前数据</button><button className="button" disabled={busy} onClick={close}>取消</button><button className="button primary" disabled={busy} onClick={modal.confirm}>{busy?'保存中…':'确认'}</button></>;
     }
   }
-  const pageTitles={overview:'观点工作台',ledger:'观点台账',calendar:'观点日历',bloggers:'博主档案',reviews:'复盘工作台',settings:'数据与评分规则'};
-  const subtitles={overview:'观点、依据与结果，在同一张工作台里回看。',ledger:'按日期整理每个判断，保留完整的原始依据。',calendar:'沿着发表日期，回看每一天的原始判断。',bloggers:'观察每位博主的判断方式与长期记录。',reviews:'对照原始条件和后续事实，完成一次有依据的复盘。',settings:'透明的评分规则，以及始终属于你的研究数据。'};
+  const pageTitles={overview:'观点工作台',ledger:'观点台账',verification:'待核对',calendar:'观点日历',bloggers:'博主档案',reviews:'复盘工作台',settings:'数据与评分规则'};
+  const subtitles={overview:'观点、依据与结果，在同一张工作台里回看。',ledger:'按日期整理每个判断，保留完整的原始依据。',verification:'逐条核对原文、发表日期与上下文，让判断有据可查。',calendar:'沿着发表日期，回看每一天的原始判断。',bloggers:'观察每位博主的判断方式与长期记录。',reviews:'对照原始条件和后续事实，完成一次有依据的复盘。',settings:'透明的评分规则，以及始终属于你的研究数据。'};
   return <>
     <aside className="sidebar">
       <a className="brand" href="#overview" title="美日韩废土 · 观点复盘簿" aria-label="美日韩废土首页" onClick={()=>navigate('overview')}><span className="brand-mark">废</span></a>
-      <nav aria-label="主导航">{['overview','ledger','calendar','bloggers','reviews'].map(v=><button key={v} title={labels[v]} aria-current={view===v?'page':undefined} className={`nav-item ${view===v?'active':''}`} onClick={()=>navigate(v)}><Icon name={v}/><span>{v==='overview'?'工作台':labels[v]}</span></button>)}</nav>
+      <nav aria-label="主导航">{['overview','ledger','verification','calendar','bloggers','reviews'].map(v=><button key={v} title={labels[v]} aria-current={view===v?'page':undefined} className={`nav-item ${view===v?'active':''}`} onClick={()=>navigate(v)}><Icon name={v==='verification'?'note':v}/><span>{v==='overview'?'工作台':labels[v]}</span>{v==='verification'&&data&&<b className="nav-queue-count">{verificationRecords(data.records).length}</b>}</button>)}</nav>
       <div className="sidebar-bottom"><button title="手写笔记参考" aria-label="手写笔记参考" onClick={()=>open({type:'notes'})}><Icon name="note"/><span>笔记</span></button><button title="数据与评分规则" aria-label="数据与评分规则" className={view==='settings'?'active':''} onClick={()=>navigate('settings')}><Icon name="settings"/><span>设置</span></button><div className="rail-profile" title="本地个人空间">我</div></div>
     </aside>
     <div className="app-shell">
@@ -95,7 +97,7 @@ export default function App(){
           {preview&&<div className="demo-banner"><span><Icon name="note"/>只读演示 · 所有博主、观点和评分均为虚构，不写入 MongoDB。</span><button onClick={()=>setPreview(false)}>返回我的数据库 <Icon name="arrowRight"/></button></div>}
           {error&&!modal&&<div className="error-box" role="alert">{error}<div className="actions"><button className="button small" onClick={()=>draft&&download(draft)}>导出待保存数据</button><button className="button small" onClick={()=>refresh()}>载入最新数据</button></div></div>}
           {legacy&&!preview&&<div className="demo-banner"><span>检测到旧版浏览器个人记录，可手动迁入 MongoDB。</span><button onClick={()=>prepareImport(legacy)}>核对并迁移 →</button></div>}
-          {['overview','ledger','reviews'].includes(view)&&<Workbench data={data} records={view==='reviews'?reviewRecords:records} analyticsRecords={scope} filter={view==='reviews'?{...filter,status:''}:filter} setFilter={setFilter} onReset={resetFilters} tableProps={tableProps} onBlogger={openBlogger} onManage={b=>b?open({type:'blogger',value:b}):navigate('bloggers')} sort={currentSort} onSort={changeSort} reviewMode={view==='reviews'} tab={tab} setTab={changeReviewTab}/>}
+          {['overview','ledger','reviews','verification'].includes(view)&&<Workbench data={data} records={view==='reviews'?reviewRecords:view==='verification'?unverifiedRecords:records} analyticsRecords={scope} filter={queueMode?{...filter,status:''}:filter} setFilter={setFilter} onReset={resetFilters} tableProps={tableProps} onBlogger={openBlogger} onManage={b=>b?open({type:'blogger',value:b}):navigate('bloggers')} sort={currentSort} onSort={changeSort} reviewMode={view==='reviews'} verificationMode={view==='verification'} tab={tab} setTab={changeReviewTab}/>}
           {view==='calendar'&&<OpinionCalendar data={data} records={scope} filter={filter} setFilter={setFilter} onReset={resetFilters} onDetail={tableProps.onDetail} onTable={()=>navigate('ledger')}/>}
           {view==='bloggers'&&<Bloggers data={data} query={query} onView={openBlogger} onEdit={b=>open({type:'blogger',value:b})} onAdd={addBlogger}/>}
           {view==='settings'&&<Settings data={data} preview={preview} onImport={()=>importInput.current.click()} onNotes={()=>open({type:'notes'})} onDemo={()=>setPreview(!preview)} legacy={legacy} onLegacy={()=>prepareImport(legacy)}/>}

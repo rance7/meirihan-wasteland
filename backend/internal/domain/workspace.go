@@ -20,6 +20,7 @@ type Blogger struct {
 
 type Review struct {
 	Date      string   `json:"date" bson:"date"`
+	Verdict   string   `json:"verdict,omitempty" bson:"verdict,omitempty"`
 	Ratings   []int    `json:"ratings" bson:"ratings"`
 	Outcome   string   `json:"outcome" bson:"outcome"`
 	Lesson    string   `json:"lesson" bson:"lesson"`
@@ -143,6 +144,9 @@ func Validate(w Workspace, now time.Time) error {
 			return fmt.Errorf("原文来源必须为不含登录凭据的 HTTP / HTTPS 链接")
 		}
 		if v := r.Review; v != nil {
+			if !oneOf(v.Verdict, "", "success", "failure") {
+				return fmt.Errorf("复盘判断结果必须为成功、失败或未判定")
+			}
 			if !r.Verified || r.Status == "draft" {
 				return fmt.Errorf("待核对记录不能有复盘")
 			}

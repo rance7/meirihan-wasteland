@@ -34,6 +34,9 @@ func TestValidation(t *testing.T) {
 			w.Records[0].Review = &Review{Date: "2025-12-31", Ratings: []int{3, 3, 3, 3}, Outcome: "证据"}
 		},
 		"missing evidence": func(w *Workspace) { w.Records[0].Review = &Review{Date: "2026-01-05", Ratings: []int{3, 3, 3, 3}} },
+		"invalid verdict": func(w *Workspace) {
+			w.Records[0].Review = &Review{Date: "2026-01-05", Ratings: []int{3, 3, 3, 3}, Outcome: "证据", Verdict: "partial"}
+		},
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -43,6 +46,16 @@ func TestValidation(t *testing.T) {
 				t.Fatal("invalid data accepted")
 			}
 		})
+	}
+}
+
+func TestReviewVerdictCompatibility(t *testing.T) {
+	for _, verdict := range []string{"", "success", "failure"} {
+		w := fixture()
+		w.Records[0].Review = &Review{Date: "2026-01-05", Ratings: []int{3, 3, 3, 3}, Outcome: "证据", Verdict: verdict}
+		if err := Validate(w, time.Date(2026, 11, 4, 0, 0, 0, 0, time.UTC)); err != nil {
+			t.Fatalf("verdict %q rejected: %v", verdict, err)
+		}
 	}
 }
 

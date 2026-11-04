@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import './theme.css';
+import './research.css';
 
 class ErrorBoundary extends React.Component {
   state = {error:null};

@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {demoState} from './domain.js';
-import {EMPTY_FILTERS,filterRecords,reviewRecords,sortRecords,stage,summarize} from './workbench.js';
+import {EMPTY_FILTERS,filterRecords,reviewRecords,sortRecords,stage,summarize,verificationRecords} from './workbench.js';
 
 describe('workbench filters and statistics',()=>{
   it('combines blogger, direction, stage and publication date without changing data',()=>{
@@ -40,5 +40,14 @@ describe('workbench filters and statistics',()=>{
     expect(sortRecords(items,{key:'due',direction:'asc'}).at(-1).id).toBe('r8');
     const completed=sortRecords(reviewRecords(data.records,'completed'),{key:'reviewDate',direction:'desc'});
     expect(completed[0].review.date>=completed.at(-1).review.date).toBe(true);
+  });
+  it('moves a verified opinion out of verification into pending review and retains combined filters',()=>{
+    const data=demoState(),draft=data.records.at(-1);
+    const filtered=filterRecords(data,'截图',{...EMPTY_FILTERS,blogger:'b4',from:draft.date,to:draft.date});
+    expect(verificationRecords(filtered).map(r=>r.id)).toEqual([draft.id]);
+    draft.verified=true;draft.status='published';
+    expect(verificationRecords(filtered)).toEqual([]);
+    expect(reviewRecords(filtered,'pending').map(r=>r.id)).toEqual([draft.id]);
+    expect(verificationRecords([])).toEqual([]);
   });
 });
