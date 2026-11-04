@@ -1,13 +1,11 @@
-import {average,eligible,matches,score} from './domain.js';
+import {average,eligible,matches,recordStage,score} from './domain.js';
 
 export const EMPTY_FILTERS=Object.freeze({blogger:'',target:'',direction:'',status:'',kind:'',horizon:'',from:'',to:''});
-export const STAGES={draft:'待核对',pending:'待复盘',reviewed:'已复盘'};
+export const STAGES={pending:'待复盘',reviewed:'已复盘'};
 
 export function stage(record){
-  return !record.verified||record.status==='draft'?'draft':record.review?'reviewed':'pending';
+  return recordStage(record);
 }
-
-export function verificationRecords(records){return records.filter(r=>stage(r)==='draft');}
 
 export function filterRecords(data,query='',filter=EMPTY_FILTERS){
   return data.records.filter(r=>matches(r,query,data.bloggers)
@@ -22,9 +20,10 @@ export function filterRecords(data,query='',filter=EMPTY_FILTERS){
 }
 
 export function summarize(records){
-  return {total:records.length,draft:records.filter(r=>stage(r)==='draft').length,
+  return {total:records.length,
     pending:records.filter(r=>stage(r)==='pending').length,
-    reviewed:records.filter(eligible).length,average:average(records)};
+    reviewed:records.filter(r=>stage(r)==='reviewed').length,
+    scored:records.filter(eligible).length,average:average(records)};
 }
 
 export function sortRecords(records,sort={key:'date',direction:'desc'},bloggers=[]){
@@ -51,7 +50,7 @@ export function sortRecords(records,sort={key:'date',direction:'desc'},bloggers=
 export function activeFilterCount(filter){return Object.values(filter).filter(Boolean).length;}
 
 export function reviewRecords(records,tab){
-  const desired=tab==='completed'?'reviewed':tab==='draft'?'draft':'pending';
+  const desired=tab==='completed'?'reviewed':'pending';
   return records.filter(r=>stage(r)===desired).toSorted((a,b)=>tab==='completed'
     ?b.review.date.localeCompare(a.review.date):(a.due||'9999').localeCompare(b.due||'9999'));
 }

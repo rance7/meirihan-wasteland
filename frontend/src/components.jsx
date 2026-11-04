@@ -1,9 +1,9 @@
 import {useEffect,useRef} from 'react';
-import {average,dayOffset,eligible,fmt,formatSuccessRate,score,successRate} from './domain.js';
+import {average,dayOffset,eligible,fmt,formatSuccessRate,recordStage,score,successRate} from './domain.js';
 
 export function SuccessRateStat({records}){
  const stats=successRate(records);
- return <div className="success-statistic" aria-label="成功率统计" title="仅统计原文已核对、完成复盘且明确标记成功或失败的记录；每条记录等权。"><div><span>成功率</span><strong>{formatSuccessRate(stats)}</strong></div><small>{stats.judged?`${stats.success} 成功 / ${stats.judged} 已判定 · ${stats.failure} 失败`:'尚无已判定复盘'}{stats.unjudged>0&&` · ${stats.unjudged} 未判定`}</small></div>;
+ return <div className="success-statistic" aria-label="成功率统计" title="仅统计已复盘且明确标记成功或失败的观点；评分选填，每条观点等权。"><div><span>成功率</span><strong>{formatSuccessRate(stats)}</strong></div><small>{stats.judged?`${stats.success} 成功 / ${stats.judged} 已判定 · ${stats.failure} 失败`:'尚无已判定观点'}{stats.unjudged>0&&` · ${stats.unjudged} 未判定`}</small></div>;
 }
 
 const paths={
@@ -29,7 +29,7 @@ export function Icon({name,className=''}){return <svg className={`icon ${classNa
 export function Avatar({blogger}){return <span className={`avatar ${blogger?.color||'purple'}`}>{blogger?.name?.slice(0,1)||'?'}</span>}
 export function Person({blogger}){return <div className="person-cell"><Avatar blogger={blogger}/><span>{blogger?.name||'未知博主'}</span></div>}
 export function Direction({record}){return <span className={`badge ${record.direction==='看多'?'long':record.direction==='看空'?'short':'neutral'}`}>{record.direction}</span>}
-export function Status({record}){return !record.verified||record.status==='draft'?<span className="badge draft">待核对</span>:record.review?<span className="badge reviewed">已复盘</span>:<span className="badge pending">待复盘</span>}
+export function Status({record}){return recordStage(record)==='pending'?<span className="badge pending">待复盘</span>:<span className="judged-status"><span className={`badge verdict-${record.review.verdict}`}>{record.review.verdict==='success'?'成功':'失败'}</span><small>已复盘</small></span>}
 export function Empty({title='还没有观点记录',detail='从一个博主、一个观点开始，慢慢建立自己的判断档案。',onAdd,actionLabel='记录观点'}){return <div className="empty"><div className="empty-icon"><Icon name="ledger"/></div><strong>{title}</strong><p>{detail}</p>{onAdd&&<button className="button soft" onClick={onAdd}><Icon name="plus"/>{actionLabel}</button>}</div>}
 export function Chart({records}){
   const buckets=Array.from({length:6},(_,i)=>{const start=dayOffset(-41+i*7),end=dayOffset(-35+i*7);const items=records.filter(r=>eligible(r)&&r.review.date>=start&&r.review.date<=end);return {label:start.slice(5).replace('-','/'),value:average(items),count:items.length}});

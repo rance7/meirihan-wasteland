@@ -1,53 +1,43 @@
 import {describe,it,expect} from 'vitest';
-import {demoState} from './domain.js';
-import {EMPTY_FILTERS,filterRecords,reviewRecords,sortRecords,stage,summarize,verificationRecords} from './workbench.js';
+import {demoState,eligible} from './domain.js';
+import {EMPTY_FILTERS,filterRecords,reviewRecords,sortRecords,stage,summarize} from './workbench.js';
 
-describe('workbench filters and statistics',()=>{
-  it('combines blogger, direction, stage and publication date without changing data',()=>{
+describe('unified review queues and statistics',()=>{
+  it('combines filters without changing stored data',()=>{
     const data=demoState(),before=structuredClone(data),record=data.records.find(r=>r.id==='r8');
-    const filtered=filterRecords(data,'宽基指数',{...EMPTY_FILTERS,blogger:'b1',direction:'看多',status:'pending',kind:'观点',horizon:'一周',from:record.date,to:record.date});
-    expect(filtered.map(r=>r.id)).toEqual(['r8']);
-    expect(data).toEqual(before);
+    const filtered=filterRecords(data,'宽基指数',{...EMPTY_FILTERS,blogger:'b1',direction:'看多',status:'reviewed',kind:'观点',horizon:'一周',from:record.date,to:record.date});
+    expect(filtered.map(r=>r.id)).toEqual(['r8']);expect(data).toEqual(before);
+    expect(filterRecords(data,'',{...EMPTY_FILTERS,from:data.records[0].date,to:data.records[0].date}).map(r=>r.id)).toEqual(['r1']);
+    expect(filterRecords(data,'',{...EMPTY_FILTERS,target:'科技板块'})).toHaveLength(3);
   });
-  it('filters exact targets and inclusive date boundaries',()=>{
-    const data=demoState(),date=data.records[0].date;
-    expect(filterRecords(data,'',{...EMPTY_FILTERS,from:date,to:date}).map(r=>r.id)).toEqual(['r1']);
-    const result=filterRecords(data,'',{...EMPTY_FILTERS,target:'科技板块'});
-    expect(result).toHaveLength(3);expect(result.every(r=>r.target==='科技板块')).toBe(true);
-  });
-  it('distinguishes pending verification from pending review and leaves absent scores empty',()=>{
+  it('completes a review on a verdict and counts scores separately',()=>{
     const data=demoState();
-    expect(stage(data.records.at(-1))).toBe('draft');
-    expect(summarize(data.records)).toEqual({total:12,draft:1,pending:4,reviewed:7,average:81});
-    const unverified=data.records.filter(r=>!r.verified);
-    expect(summarize(unverified)).toEqual({total:1,draft:1,pending:0,reviewed:0,average:null});
-    expect(summarize([]).average).toBeNull();
+    expect(summarize(data.records)).toEqual({total:12,pending:2,reviewed:10,scored:6,average:81});
+    const unreviewed=data.records.at(-1);expect(stage(unreviewed)).toBe('pending');
+    unreviewed.verified=true;unreviewed.status='published';
+    unreviewed.review={date:unreviewed.date,verdict:'failure',ratings:[],outcome:'',lesson:'',entry:null,exit:null,benchmark:null};
+    expect(stage(unreviewed)).toBe('reviewed');
+    expect(reviewRecords([unreviewed],'pending')).toEqual([]);
+    expect(reviewRecords([unreviewed],'completed')).toEqual([unreviewed]);
+    expect(summarize([unreviewed])).toEqual({total:1,pending:0,reviewed:1,scored:0,average:null});
+    unreviewed.review.verdict='';expect(stage(unreviewed)).toBe('pending');
   });
-  it('keeps unreviewed records last in both score sort directions',()=>{
+  it('sorts scored samples while leaving unscored completed reviews empty',()=>{
     const data=demoState(),before=structuredClone(data.records);
     for(const direction of ['asc','desc']){
       const sorted=sortRecords(data.records,{key:'score',direction},data.bloggers);
-      expect(sorted.slice(0,7).every(r=>r.review)).toBe(true);
-      expect(sorted.slice(7).every(r=>!r.review)).toBe(true);
+      expect(sorted.slice(0,6).every(eligible)).toBe(true);
+      expect(sorted.slice(6).every(r=>!eligible(r))).toBe(true);
     }
     expect(data.records).toEqual(before);
   });
-  it('orders review queues by due date and puts missing dates last',()=>{
-    const data=demoState();data.records.find(r=>r.id==='r8').due='';
-    const items=reviewRecords(data.records,'pending');
-    expect(items.at(-1).id).toBe('r8');
-    expect(items.every(r=>r.verified&&!r.review)).toBe(true);
-    expect(sortRecords(items,{key:'due',direction:'asc'}).at(-1).id).toBe('r8');
-    const completed=sortRecords(reviewRecords(data.records,'completed'),{key:'reviewDate',direction:'desc'});
+  it('orders two queues and preserves existing reviews',()=>{
+    const data=demoState(),before=structuredClone(data);
+    data.records.find(r=>r.id==='r3').due='';
+    expect(reviewRecords(data.records,'pending').map(r=>r.id)).toEqual(['r12','r3']);
+    const completed=reviewRecords(data.records,'completed');expect(completed).toHaveLength(10);
     expect(completed[0].review.date>=completed.at(-1).review.date).toBe(true);
-  });
-  it('moves a verified opinion out of verification into pending review and retains combined filters',()=>{
-    const data=demoState(),draft=data.records.at(-1);
-    const filtered=filterRecords(data,'截图',{...EMPTY_FILTERS,blogger:'b4',from:draft.date,to:draft.date});
-    expect(verificationRecords(filtered).map(r=>r.id)).toEqual([draft.id]);
-    draft.verified=true;draft.status='published';
-    expect(verificationRecords(filtered)).toEqual([]);
-    expect(reviewRecords(filtered,'pending').map(r=>r.id)).toEqual([draft.id]);
-    expect(verificationRecords([])).toEqual([]);
+    expect(completed.find(r=>r.id==='r8').review).toEqual(before.records.find(r=>r.id==='r8').review);
+    expect(summarize([])).toEqual({total:0,pending:0,reviewed:0,scored:0,average:null});
   });
 });

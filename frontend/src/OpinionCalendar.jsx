@@ -1,5 +1,5 @@
 import {useMemo,useState} from 'react';
-import {dateToday,fmt} from './domain.js';
+import {dateToday,fmt,recordTitle} from './domain.js';
 import {Icon,Person,Status,Direction} from './components.jsx';
 import {FilterBar} from './Workbench.jsx';
 import {groupByPublicationDate,monthDays,shiftMonth} from './calendar.js';
@@ -37,7 +37,7 @@ export default function OpinionCalendar({data,records,filter,setFilter,onReset,o
             const items=groups.get(day.key)||[];
             return <section key={day.key} className={`calendar-day ${day.inMonth?'':'outside-month'} ${selected===day.key?'selected':''} ${today===day.key?'is-today':''}`} aria-label={`${fmt(day.key)}，${items.length} 条观点`}>
               <button className="calendar-date" aria-label={`选择 ${day.key}，${items.length} 条观点`} aria-pressed={selected===day.key} aria-current={today===day.key?'date':undefined} onClick={()=>chooseDate(day.key)}><span>{day.day}</span>{items.length>0&&<small>{items.length} 条</small>}</button>
-              <div className="calendar-events">{items.slice(0,3).map(record=><button key={record.id} className="calendar-event" onClick={()=>onDetail(record)} title={`${bloggers.get(record.bloggerId)?.name||'未知博主'} · ${record.title}`}><span>{bloggers.get(record.bloggerId)?.name||'未知博主'}</span><strong>{record.title}</strong></button>)}{items.length>3&&<button className="calendar-more" onClick={()=>chooseDate(day.key)}>还有 {items.length-3} 条 · 查看全部</button>}</div>
+              <div className="calendar-events">{items.slice(0,3).map(record=><button key={record.id} className="calendar-event" onClick={()=>onDetail(record)} title={`${bloggers.get(record.bloggerId)?.name||'未知博主'} · ${recordTitle(record)}`}><span>{bloggers.get(record.bloggerId)?.name||'未知博主'}</span><strong>{recordTitle(record)}</strong></button>)}{items.length>3&&<button className="calendar-more" onClick={()=>chooseDate(day.key)}>还有 {items.length-3} 条 · 查看全部</button>}</div>
               {items.length>0&&<button className="calendar-mobile-count" onClick={()=>chooseDate(day.key)}>{items.length} 条观点</button>}
             </section>;
           })}
@@ -46,7 +46,7 @@ export default function OpinionCalendar({data,records,filter,setFilter,onReset,o
       </section>
       <aside className="calendar-agenda" aria-label="所选日期的观点">
         <header><div className="eyebrow">DAILY OPINIONS</div><h2>{fmt(selected)}{selected===today&&<span>今天</span>}</h2><p>当日发表 <b>{selectedRecords.length}</b> 条观点{filter.blogger||filter.direction||filter.from||filter.to||filter.status||filter.target||filter.kind||filter.horizon?' · 已应用筛选':''}</p></header>
-        <div className="calendar-agenda-list">{selectedRecords.length?selectedRecords.map(record=><button className="calendar-agenda-record" key={record.id} onClick={()=>onDetail(record)}><div className="calendar-agenda-meta"><Person blogger={bloggers.get(record.bloggerId)}/><Status record={record}/></div><h3>{record.title}</h3><p>{record.quote||'未填写原话'}</p><div className="calendar-agenda-bottom"><span>{record.target}</span><Direction record={record}/></div><span className="calendar-detail-link">查看完整观点 <Icon name="arrowRight"/></span></button>):<div className="calendar-day-empty"><Icon name="calendar"/><strong>当天没有观点</strong><p>选择其他日期查看，或调整当前筛选条件。</p></div>}</div>
+        <div className="calendar-agenda-list">{selectedRecords.length?selectedRecords.map(record=><button className="calendar-agenda-record" key={record.id} onClick={()=>onDetail(record)}><div className="calendar-agenda-meta"><Person blogger={bloggers.get(record.bloggerId)}/><Status record={record}/></div><h3>{recordTitle(record)}</h3><p>{record.quote||'未填写原话'}</p><div className="calendar-agenda-bottom"><span>{record.target}</span><Direction record={record}/></div><span className="calendar-detail-link">查看完整观点 <Icon name="arrowRight"/></span></button>):<div className="calendar-day-empty"><Icon name="calendar"/><strong>当天没有观点</strong><p>选择其他日期查看，或调整当前筛选条件。</p></div>}</div>
         <div className="calendar-agenda-note"><Icon name="note"/><span>发表日期与计划回看日期分别记录，日历仅使用发表日期。</span></div>
       </aside>
     </div>
